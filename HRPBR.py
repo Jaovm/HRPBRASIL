@@ -18,7 +18,6 @@ def get_data(tickers, start, end):
     if 'Adj Close' in data.columns:
         data = data['Adj Close']
     elif 'Close' in data.columns:
-        st.warning("Usando a coluna 'Close' pois 'Adj Close' não foi encontrada.")
         data = data['Close']
     else:
         raise KeyError("Os dados não contêm 'Adj Close' ou 'Close'. Verifique os tickers.")
@@ -49,6 +48,7 @@ def simulate_random_portfolios(data, num_portfolios):
     mean_returns = returns.mean()
     cov_matrix = returns.cov()
     results = np.zeros((3, num_portfolios))
+    all_weights = []
     
     for i in range(num_portfolios):
         weights = np.random.random(len(data.columns))
@@ -59,8 +59,14 @@ def simulate_random_portfolios(data, num_portfolios):
         results[0, i] = portfolio_return
         results[1, i] = portfolio_volatility
         results[2, i] = sharpe_ratio
+        all_weights.append(weights)
     
-    return results
+    max_sharpe_idx = np.argmax(results[2])
+    min_risk_idx = np.argmin(results[1])
+    best_sharpe_weights = all_weights[max_sharpe_idx]
+    lowest_risk_weights = all_weights[min_risk_idx]
+    
+    return results, best_sharpe_weights, lowest_risk_weights
 
 # Interface do Streamlit
 st.title("Hierarchical Risk Parity para Ações Brasileiras")
@@ -87,13 +93,20 @@ if st.button("Analisar Portfólio"):
         st.pyplot(fig)
         
         st.subheader("Simulação de Portfólios Aleatórios")
-        results = simulate_random_portfolios(data, num_simulations)
+        results, best_sharpe_weights, lowest_risk_weights = simulate_random_portfolios(data, num_simulations)
+        
         fig, ax = plt.subplots()
         scatter = ax.scatter(results[1, :], results[0, :], c=results[2, :], cmap='viridis', alpha=0.7)
         ax.set_xlabel('Volatilidade')
         ax.set_ylabel('Retorno Esperado')
         fig.colorbar(scatter, label='Sharpe Ratio')
         st.pyplot(fig)
+        
+        st.subheader("Carteira com Melhor Sharpe")
+        st.dataframe(pd.Series(best_sharpe_weights, index=data.columns, name="Pesos"))
+        
+        st.subheader("Carteira com Menor Risco")
+        st.dataframe(pd.Series(lowest_risk_weights, index=data.columns, name="Pesos"))
         
     except Exception as e:
         st.error(f"Erro ao processar a análise: {e}")
