@@ -8,8 +8,8 @@ from scipy.spatial.distance import squareform
 from sklearn.covariance import LedoitWolf
 
 # Função para baixar dados históricos
-def get_stock_data(tickers, start, end):
-    data = yf.download(tickers, start=start, end=end)['Adj Close']
+def get_stock_data(tickers, start='2019-01-01'):
+    data = yf.download(tickers, start=start, end='2025-04-01')['Adj Close']
     data = data.dropna(axis=1, how='all')  # Remove ativos sem histórico suficiente
     return data
 
@@ -46,17 +46,13 @@ st.title('Otimização de Carteira com Hierarchical Risk Parity')
 default_tickers = ['ITUB3.SA', 'B3SA3.SA', 'WEGE3.SA', 'PETR4.SA', 'VALE3.SA']
 tickers = st.text_input('Digite os tickers separados por vírgula:', ', '.join(default_tickers)).split(', ')
 
-# Seleção de datas
-start_date = st.date_input('Data de início', pd.to_datetime('2019-01-01'))
-end_date = st.date_input('Data de fim', pd.to_datetime('today'))
-
 # Baixando dados
 if st.button('Calcular alocação HRP'):
-    data = get_stock_data(tickers, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
+    data = get_stock_data(tickers)
     returns = data.pct_change().dropna()
     
     if returns.shape[0] < 2 or returns.shape[1] < 2:
-        st.warning("Dados insuficientes para calcular a matriz de covariância. Tente adicionar mais ativos ou ajustar o período de análise.")
+        st.warning("Dados insuficientes para calcular a matriz de covariância. Tente adicionar mais ativos ou aumentar o período de análise.")
     else:
         weights = hrp_allocation(returns)
         st.write('### Pesos da Carteira Otimizada')
@@ -64,4 +60,10 @@ if st.button('Calcular alocação HRP'):
         
         # Plotando o dendrograma
         corr_matrix = get_correlation_matrix(returns)
-        dist_matrix =
+        dist_matrix = np.sqrt((1 - corr_matrix) / 2)
+        linkage = sch.linkage(squareform(dist_matrix), method='ward')
+        
+        plt.figure(figsize=(10, 5))
+        sch.dendrogram(linkage, labels=returns.columns, leaf_rotation=90)
+        plt.title('Dendrograma de Clustering')
+        st.pyplot(plt)
