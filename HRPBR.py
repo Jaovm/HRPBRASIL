@@ -17,17 +17,18 @@ def get_data(tickers, start, end):
     if data.empty:
         raise ValueError("Nenhum dado foi baixado. Verifique os tickers e as datas.")
     
-    # Verifica se há colunas multinível
-    if isinstance(data.columns, pd.MultiIndex):
-        try:
-            data = data.xs('Adj Close', level=1, axis=1)
-        except KeyError:
-            raise KeyError("Os dados retornados não contêm a coluna 'Adj Close'. Verifique os tickers inseridos.")
+    # Exibir prévia dos dados para depuração
+    st.write("Prévia dos dados brutos:", data.head())
+    st.write("Colunas disponíveis:", data.columns.tolist())
     
-    # Se ainda não houver 'Adj Close', pode ser necessário pegar a última coluna disponível
-    if 'Adj Close' not in data.columns:
-        st.warning("A coluna 'Adj Close' não foi encontrada. Utilizando a última coluna disponível.")
-        data = data.iloc[:, -1]  # Usa a última coluna, caso não haja 'Adj Close'
+    # Selecionar 'Adj Close' se disponível, senão usar 'Close'
+    if 'Adj Close' in data.columns:
+        data = data['Adj Close']
+    elif 'Close' in data.columns:
+        st.warning("Usando a coluna 'Close' pois 'Adj Close' não foi encontrada.")
+        data = data['Close']
+    else:
+        raise KeyError("Os dados não contêm 'Adj Close' ou 'Close'. Verifique os tickers.")
     
     return data
 
@@ -75,4 +76,4 @@ if st.button("Analisar Portfólio"):
         st.pyplot(fig)
     except Exception as e:
         st.error(f"Erro ao processar a análise: {e}")
-
+        
