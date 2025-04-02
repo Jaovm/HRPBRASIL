@@ -1,52 +1,70 @@
 import streamlit as st
-import yfinance as yf
-import numpy as np
 import pandas as pd
+import numpy as np
+import yfinance as yf
 import scipy.cluster.hierarchy as sch
 import scipy.spatial.distance as ssd
+import riskfolio as rp
 import matplotlib.pyplot as plt
 
-# Função para obter os dados históricos
+# Função para obter dados
+@st.cache_data
 def get_data(tickers, start, end):
-    tickers = [t if t.endswith(".SA") else t + ".SA" for t in tickers]
-    data = yf.download(tickers, start=start, end=end)['Adj Close']
-    data = data.dropna(axis=1, thresh=int(0.7 * len(data)))  # Mantém ativos com pelo menos 70% dos dados
-    return data
+    df = yf.download(tickers, start=start, end=end)['Adj Close']
+    return df
 
-# Função para calcular a matriz de correlação e distância
-def get_correlation_distance(data):
-    returns = data.pct_change().dropna()
-    correlation_matrix = returns.corr()
-    distance_matrix = np.sqrt(0.5 * (1 - correlation_matrix))
-    return correlation_matrix, distance_matrix
+# Interface do usuário
+st.title('Otimização de Portfólio com Hierarchical Risk Parity (HRP)')
 
-# Função para aplicar HRP
-def hierarchical_risk_parity(data):
-    _, distance_matrix = get_correlation_distance(data)
-    dist_linkage = sch.linkage(ssd.squareform(distance_matrix), method='ward')
-    dendro = sch.dendrogram(dist_linkage, no_plot=True)
-    sorted_indices = dendro['leaves']
-    inv_volatility = 1 / data.pct_change().std()
-    weights = inv_volatility / inv_volatility.sum()
-    sorted_weights = weights.iloc[sorted_indices]
-    sorted_weights /= sorted_weights.sum()
-    return sorted_weights.sort_index()
+# Entrada de dados
+tickers_default = "AGRO3.SA BBAS3.SA BBSE3.SA BPAC11.SA EGIE3.SA ITUB3.SA PRIO3.SA PSSA3.SA SAPR3.SA SBSP3.SA VIVT3.SA WEGE3.SA TOTS3.SA B3SA3.SA TAEE3.SA"
+tickers = st.text_area('Digite os tickers separados por espaço', tickers_default).split()
+data_inicio = st.date_input("Data de início", value=pd.to_datetime("2019-01-01"))
+data_fim = st.date_input("Data de fim", value=pd.to_datetime("2024-01-01"))
+n_portfolios = st.number_input("Número de simulações", min_value=100, max_value=100000, value=5000, step=100)
 
-# Interface do Streamlit
-st.title("Hierarchical Risk Parity para Ações Brasileiras")
-
-tickers = st.text_area("Insira os tickers separados por espaço", "B3SA3 BBAS3 ITUB3 PETR4 VALE3 WEGE3")
-tickers = tickers.split()
-
-start_date = st.date_input("Data de início", pd.to_datetime("2020-01-01"))
-end_date = st.date_input("Data de fim", pd.to_datetime("2024-01-01"))
-
-if st.button("Analisar Portfólio"):
-    try:
-        data = get_data(tickers, start_date, end_date)
-        hrp_weights = hierarchical_risk_parity(data)
-        st.subheader("Pesos da carteira HRP")
-        st.dataframe(hrp_weights)
-    except Exception as e:
-        st.error(f"Erro ao processar a análise: {e}")
-
+if st.button('Otimizar Portfólio'):
+    df = get_data(tickers, data_inicio, data_fim)
+    returns = df.pct_change().dropna()
+    
+    # Otimização HRP
+    port = rp.HCPortfolio(returns=returns)
+    weights = port.optimization(model='HRP', codependence='pearson', rm='MV', linkage='ward', leaf_order=True)
+    
+    st.subheader("Pesos da Carteira Otimizada (HRP)")
+    st.write(weights)
+    
+    # Simulação de carteiras aleatórias para maximizar Sharpe
+    mean_returns = returns.mean()
+    cov_matrix = returns.cov()
+    
+    results = np.zeros((3, n_portfolios))
+    weights_record = []
+    
+    for i in range(n_portfolios):
+        w = np.random.dirichlet(np.ones(len(tickers)))
+        weights_record.append(w)
+        port_return = np.dot(w, mean_returns)
+        port_volatility = np.sqrt(np.dot(w.T, np.dot(cov_matrix, w)))
+        sharpe_ratio = port_return / port_volatility
+        results[0, i] = port_return
+        results[1, i] = port_volatility
+        results[2, i] = sharpe_ratio
+    
+    max_sharpe_idx = np.argmax(results[2])
+    best_weights = weights_record[max_sharpe_idx]
+    best_allocation = pd.Series(best_weights, index=tickers)
+    
+    st.subheader("Melhor Carteira pelo Índice de Sharpe")
+    st.write(best_allocation)
+    
+    # Plot Fronteira Eficiente
+    fig, ax = plt.subplots()
+    scatter = ax.scatter(results[1, :], results[0, :], c=results[2, :], cmap='viridis', marker='o')
+    ax.scatter(results[1, max_sharpe_idx], results[0, max_sharpe_idx], c='red', marker='*', s=200, label='Melhor Sharpe')
+    ax.set_xlabel('Volatilidade')
+    ax.set_ylabel('Retorno Esperado')
+    ax.set_title('Fronteira Eficiente')
+    ax.legend()
+    fig.colorbar(scatter, label='Sharpe Ratio')
+    st.pyplot(fig)
