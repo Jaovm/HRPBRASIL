@@ -9,15 +9,19 @@ from sklearn.covariance import LedoitWolf
 
 # Função para obter os dados históricos
 def get_data(tickers, start, end):
+    # Adicionar .SA aos tickers que não têm sufixo
+    tickers = [t if t.endswith(".SA") else t + ".SA" for t in tickers]
+    
     data = yf.download(tickers, start=start, end=end)
     
     if data.empty:
         raise ValueError("Nenhum dado foi baixado. Verifique os tickers e as datas.")
     
-    if 'Adj Close' not in data.columns:
-        raise KeyError("A coluna 'Adj Close' não foi encontrada nos dados baixados.")
+    # Ajuste para colunas multinível
+    if isinstance(data.columns, pd.MultiIndex):
+        data = data.xs('Adj Close', level=1, axis=1)
     
-    return data['Adj Close']
+    return data
 
 # Função para calcular a matriz de correlação e a distância
 def get_correlation_distance(data):
