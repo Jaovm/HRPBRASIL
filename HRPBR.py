@@ -24,10 +24,13 @@ def get_data(tickers, start, end):
         raise KeyError("Os dados não contêm 'Adj Close' ou 'Close'. Verifique os tickers.")
     
     data = data[selected_column]
-    data = data.dropna(axis=1, how='all')  # Remove ativos sem dados
+    st.write("Dados brutos baixados:")
+    st.write(data.head())  # Exibir os primeiros dados baixados
+    
+    data = data.dropna(axis=1, thresh=int(0.7 * len(data)))  # Mantém ativos com pelo menos 70% dos dados
     
     if data.shape[1] == 0:
-        st.write(f"Tickers sem dados suficientes: {tickers}")  # Log para depuração
+        st.write(f"Tickers sem dados suficientes após limpeza: {tickers}")  # Log para depuração
         raise ValueError("Nenhum ativo contém dados suficientes para a análise. Verifique os tickers.")
     
     return data
@@ -98,19 +101,13 @@ num_simulations = st.number_input("Número de simulações de portfólio", min_v
 if st.button("Analisar Portfólio"):
     try:
         data = get_data(tickers, start_date, end_date)
-        st.subheader("Dados baixados")
+        st.subheader("Dados filtrados")
         st.write(data.head())
         
         hrp_weights = hierarchical_risk_parity(data)
         
         st.subheader("Pesos da carteira HRP")
         st.dataframe(hrp_weights)
-        
-        _, distance_matrix = get_correlation_distance(data)
-        dist_linkage = sch.linkage(ssd.squareform(distance_matrix, checks=False), method='ward')
-        fig, ax = plt.subplots(figsize=(10, 5))
-        sch.dendrogram(dist_linkage, labels=data.columns, ax=ax)
-        st.pyplot(fig)
         
         st.subheader("Simulação de Portfólios Aleatórios")
         results, best_sharpe_weights, lowest_risk_weights = simulate_random_portfolios(data, num_simulations)
@@ -130,4 +127,3 @@ if st.button("Analisar Portfólio"):
         
     except Exception as e:
         st.error(f"Erro ao processar a análise: {e}")
-
