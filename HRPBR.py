@@ -13,8 +13,6 @@ def get_data(tickers, start, end):
     data = yf.download(tickers, start=start, end=end)
     if data.empty:
         raise ValueError("Nenhum dado foi baixado. Verifique os tickers e as datas.")
-    st.write("Prévia dos dados brutos:", data.head())
-    st.write("Colunas disponíveis:", data.columns.tolist())
     if 'Adj Close' in data.columns:
         data = data['Adj Close']
     elif 'Close' in data.columns:
@@ -28,7 +26,7 @@ def get_correlation_distance(data):
     returns = data.pct_change().dropna()
     correlation_matrix = returns.corr()
     distance_matrix = np.sqrt(0.5 * (1 - correlation_matrix))
-    return correlation_matrix, distance_matrix
+    return correlation_matrix, (distance_matrix + distance_matrix.T) / 2  # Garantindo simetria
 
 # Função para aplicar HRP
 def hierarchical_risk_parity(data):
