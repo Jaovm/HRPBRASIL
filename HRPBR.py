@@ -9,8 +9,15 @@ from sklearn.covariance import LedoitWolf
 
 # Função para obter os dados históricos
 def get_data(tickers, start, end):
-    data = yf.download(tickers, start=start, end=end)['Adj Close']
-    return data
+    data = yf.download(tickers, start=start, end=end)
+    
+    if data.empty:
+        raise ValueError("Nenhum dado foi baixado. Verifique os tickers e as datas.")
+    
+    if 'Adj Close' not in data.columns:
+        raise KeyError("A coluna 'Adj Close' não foi encontrada nos dados baixados.")
+    
+    return data['Adj Close']
 
 # Função para calcular a matriz de correlação e a distância
 def get_correlation_distance(data):
@@ -41,15 +48,19 @@ start_date = st.date_input("Data de início", pd.to_datetime("2020-01-01"))
 end_date = st.date_input("Data de fim", pd.to_datetime("2024-01-01"))
 
 if st.button("Analisar Portfólio"):
-    data = get_data(tickers, start_date, end_date)
-    hrp_weights = hierarchical_risk_parity(data)
-    
-    st.subheader("Pesos da carteira HRP")
-    st.dataframe(hrp_weights)
-    
-    # Plot do dendrograma
-    _, distance_matrix = get_correlation_distance(data)
-    dist_linkage = sch.linkage(ssd.squareform(distance_matrix), method='ward')
-    fig, ax = plt.subplots(figsize=(10, 5))
-    sch.dendrogram(dist_linkage, labels=tickers, ax=ax)
-    st.pyplot(fig)
+    try:
+        data = get_data(tickers, start_date, end_date)
+        hrp_weights = hierarchical_risk_parity(data)
+        
+        st.subheader("Pesos da carteira HRP")
+        st.dataframe(hrp_weights)
+        
+        # Plot do dendrograma
+        _, distance_matrix = get_correlation_distance(data)
+        dist_linkage = sch.linkage(ssd.squareform(distance_matrix), method='ward')
+        fig, ax = plt.subplots(figsize=(10, 5))
+        sch.dendrogram(dist_linkage, labels=tickers, ax=ax)
+        st.pyplot(fig)
+    except Exception as e:
+        st.error(f"Erro ao processar a análise: {e}")
+
