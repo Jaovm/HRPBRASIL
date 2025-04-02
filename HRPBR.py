@@ -19,19 +19,29 @@ def get_data(tickers, start, end):
         data = data['Close']
     else:
         raise KeyError("Os dados não contêm 'Adj Close' ou 'Close'. Verifique os tickers.")
+    data = data.dropna(axis=1, how='all')  # Remove ativos sem dados
+    if data.shape[1] == 0:
+        raise ValueError("Nenhum ativo contém dados suficientes para a análise.")
     return data
 
 # Função para calcular a matriz de correlação e a distância
 def get_correlation_distance(data):
     returns = data.pct_change().dropna()
+    if returns.shape[1] < 2:
+        raise ValueError("Dados insuficientes para calcular correlações.")
     correlation_matrix = returns.corr()
     distance_matrix = np.sqrt(0.5 * (1 - correlation_matrix))
     np.fill_diagonal(distance_matrix.values, 0)  # Garantindo que a diagonal seja zero
-    return correlation_matrix, (distance_matrix + distance_matrix.T) / 2  # Garantindo simetria
+    distance_matrix = (distance_matrix + distance_matrix.T) / 2  # Garantindo simetria
+    if np.isnan(distance_matrix).any():
+        raise ValueError("A matriz de distância contém valores inválidos. Verifique os dados de entrada.")
+    return correlation_matrix, distance_matrix
 
 # Função para aplicar HRP
 def hierarchical_risk_parity(data):
     _, distance_matrix = get_correlation_distance(data)
+    if np.all(distance_matrix == 0):
+        raise ValueError("A matriz de distância está vazia ou inválida.")
     dist_linkage = sch.linkage(ssd.squareform(distance_matrix, checks=False), method='ward')
     dendro = sch.dendrogram(dist_linkage, no_plot=True)
     sorted_indices = dendro['leaves']
@@ -88,7 +98,7 @@ if st.button("Analisar Portfólio"):
         _, distance_matrix = get_correlation_distance(data)
         dist_linkage = sch.linkage(ssd.squareform(distance_matrix, checks=False), method='ward')
         fig, ax = plt.subplots(figsize=(10, 5))
-        sch.dendrogram(dist_linkage, labels=tickers, ax=ax)
+        sch.dendrogram(dist_linkage, labels=data.columns, ax=ax)
         st.pyplot(fig)
         
         st.subheader("Simulação de Portfólios Aleatórios")
@@ -109,4 +119,3 @@ if st.button("Analisar Portfólio"):
         
     except Exception as e:
         st.error(f"Erro ao processar a análise: {e}")
-
