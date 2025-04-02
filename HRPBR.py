@@ -37,6 +37,7 @@ tickers = st.text_area('Digite os tickers separados por espaço', tickers_defaul
 data_inicio = st.date_input("Data de início", value=pd.to_datetime("2019-01-01"))
 data_fim = st.date_input("Data de fim", value=pd.to_datetime("2024-01-01"))
 n_portfolios = st.number_input("Número de simulações", min_value=100, max_value=500000, value=10000, step=1000)
+limite_min_alocacao = st.slider("Limite mínimo de alocação por ativo (%)", min_value=0.0, max_value=1.0, value=0.0, step=0.05)
 limite_max_alocacao = st.slider("Limite máximo de alocação por ativo (%)", min_value=0.0, max_value=1.0, value=1.0, step=0.05)
 
 if st.button('Otimizar Portfólio'):
@@ -61,8 +62,7 @@ if st.button('Otimizar Portfólio'):
     weights_record = []
     
     for i in range(n_portfolios):
-        w = np.random.dirichlet(np.ones(len(tickers)))
-        w = np.minimum(w, limite_max_alocacao)
+        w = np.random.uniform(limite_min_alocacao, limite_max_alocacao, len(tickers))
         w /= w.sum()
         weights_record.append(w)
         port_return = np.dot(w, mean_returns)
@@ -79,17 +79,6 @@ if st.button('Otimizar Portfólio'):
     st.subheader("Melhor Carteira pelo Índice de Sharpe")
     st.write(best_allocation)
     
-    # Plot Fronteira Eficiente
-    fig, ax = plt.subplots()
-    scatter = ax.scatter(results[1, :], results[0, :], c=results[2, :], cmap='viridis', marker='o')
-    ax.scatter(results[1, max_sharpe_idx], results[0, max_sharpe_idx], c='red', marker='*', s=200, label='Melhor Sharpe')
-    ax.set_xlabel('Volatilidade')
-    ax.set_ylabel('Retorno Esperado')
-    ax.set_title('Fronteira Eficiente')
-    ax.legend()
-    fig.colorbar(scatter, label='Sharpe Ratio')
-    st.pyplot(fig)
-
     # Backtest das carteiras HRP, Melhor Sharpe e Ibovespa
     ibov = get_data(["^BVSP"], data_inicio, data_fim)
     if ibov is not None:
@@ -112,4 +101,16 @@ if st.button('Otimizar Portfólio'):
         
         st.subheader("Backtest das Estratégias")
         st.line_chart(backtest)
+        
+        # Cálculo de métricas de desempenho
+        cagr = lambda x: (x.iloc[-1] / x.iloc[0]) ** (1 / len(x.index.year.unique())) - 1
+        vol_anu = lambda x: x.pct_change().std() * np.sqrt(252)
+        
+        metrics = pd.DataFrame({
+            'CAGR': backtest.apply(cagr),
+            'Volatilidade Anual': backtest.apply(vol_anu)
+        })
+        
+        st.subheader("Métricas das Estratégias")
+        st.write(metrics)
 
