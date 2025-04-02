@@ -13,15 +13,20 @@ def get_data(tickers, start, end):
     data = yf.download(tickers, start=start, end=end)
     if data.empty:
         raise ValueError("Nenhum dado foi baixado. Verifique os tickers e as datas.")
-    if 'Adj Close' in data.columns:
-        data = data['Adj Close']
-    elif 'Close' in data.columns:
-        data = data['Close']
-    else:
+    
+    # Verificar quais colunas estão disponíveis
+    available_columns = data.columns.levels[0] if isinstance(data.columns, pd.MultiIndex) else data.columns
+    selected_column = 'Adj Close' if 'Adj Close' in available_columns else 'Close'
+    
+    if selected_column not in available_columns:
         raise KeyError("Os dados não contêm 'Adj Close' ou 'Close'. Verifique os tickers.")
+    
+    data = data[selected_column]
     data = data.dropna(axis=1, how='all')  # Remove ativos sem dados
+    
     if data.shape[1] == 0:
-        raise ValueError("Nenhum ativo contém dados suficientes para a análise.")
+        raise ValueError("Nenhum ativo contém dados suficientes para a análise. Verifique os tickers.")
+    
     return data
 
 # Função para calcular a matriz de correlação e a distância
@@ -90,6 +95,9 @@ num_simulations = st.number_input("Número de simulações de portfólio", min_v
 if st.button("Analisar Portfólio"):
     try:
         data = get_data(tickers, start_date, end_date)
+        st.subheader("Dados baixados")
+        st.write(data.head())
+        
         hrp_weights = hierarchical_risk_parity(data)
         
         st.subheader("Pesos da carteira HRP")
@@ -119,3 +127,4 @@ if st.button("Analisar Portfólio"):
         
     except Exception as e:
         st.error(f"Erro ao processar a análise: {e}")
+
