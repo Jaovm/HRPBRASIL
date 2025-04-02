@@ -97,11 +97,19 @@ if st.button('Otimizar Portfólio'):
         hrp_returns = (returns * weights.values.flatten()).sum(axis=1)
         sharpe_returns = (returns * best_weights).sum(axis=1)
         
+        # Criar um DataFrame com os retornos acumulados
         backtest = pd.DataFrame({
             'HRP': (1 + hrp_returns).cumprod(),
-            'Melhor Sharpe': (1 + sharpe_returns).cumprod(),
-            'Ibovespa': (1 + ibov_returns).cumprod()
+            'Melhor Sharpe': (1 + sharpe_returns).cumprod()
         })
+        
+        # Adicionar o Ibovespa ao backtest apenas se ele não estiver vazio
+        if not ibov_returns.empty:
+            backtest['Ibovespa'] = (1 + ibov_returns).cumprod()
+        
+        # Alinhar os índices para evitar problemas de tamanhos diferentes
+        backtest = backtest.dropna()
         
         st.subheader("Backtest das Estratégias")
         st.line_chart(backtest)
+
