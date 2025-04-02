@@ -36,7 +36,8 @@ tickers_default = "AGRO3.SA BBAS3.SA BBSE3.SA BPAC11.SA EGIE3.SA ITUB3.SA PRIO3.
 tickers = st.text_area('Digite os tickers separados por espaço', tickers_default).split()
 data_inicio = st.date_input("Data de início", value=pd.to_datetime("2019-01-01"))
 data_fim = st.date_input("Data de fim", value=pd.to_datetime("2024-01-01"))
-n_portfolios = st.number_input("Número de simulações", min_value=100, max_value=100000, value=5000, step=100)
+n_portfolios = st.number_input("Número de simulações", min_value=100, max_value=500000, value=10000, step=1000)
+limite_max_alocacao = st.slider("Limite máximo de alocação por ativo (%)", min_value=0.0, max_value=1.0, value=1.0, step=0.05)
 
 if st.button('Otimizar Portfólio'):
     df = get_data(tickers, data_inicio, data_fim)
@@ -61,6 +62,8 @@ if st.button('Otimizar Portfólio'):
     
     for i in range(n_portfolios):
         w = np.random.dirichlet(np.ones(len(tickers)))
+        w = np.minimum(w, limite_max_alocacao)
+        w /= w.sum()
         weights_record.append(w)
         port_return = np.dot(w, mean_returns)
         port_volatility = np.sqrt(np.dot(w.T, np.dot(cov_matrix, w)))
@@ -87,3 +90,18 @@ if st.button('Otimizar Portfólio'):
     fig.colorbar(scatter, label='Sharpe Ratio')
     st.pyplot(fig)
 
+    # Backtest das carteiras HRP, Melhor Sharpe e Ibovespa
+    ibov = get_data(["^BVSP"], data_inicio, data_fim)
+    if ibov is not None:
+        ibov_returns = ibov.pct_change().dropna()
+        hrp_returns = (returns * weights.values.flatten()).sum(axis=1)
+        sharpe_returns = (returns * best_weights).sum(axis=1)
+        
+        backtest = pd.DataFrame({
+            'HRP': (1 + hrp_returns).cumprod(),
+            'Melhor Sharpe': (1 + sharpe_returns).cumprod(),
+            'Ibovespa': (1 + ibov_returns).cumprod()
+        })
+        
+        st.subheader("Backtest das Estratégias")
+        st.line_chart(backtest)
