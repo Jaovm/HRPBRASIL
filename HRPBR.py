@@ -8,8 +8,8 @@ from scipy.spatial.distance import squareform
 from sklearn.covariance import LedoitWolf
 
 # Função para baixar dados históricos
-def get_stock_data(tickers, start='2019-01-01'):
-    data = yf.download(tickers, start=start, end='2025-04-01')['Adj Close']
+def get_stock_data(tickers, start, end):
+    data = yf.download(tickers, start=start, end=end)['Adj Close']
     data = data.dropna(axis=1, how='all')  # Remove ativos sem histórico suficiente
     return data
 
@@ -46,13 +46,24 @@ st.title('Otimização de Carteira com Hierarchical Risk Parity')
 default_tickers = ['ITUB3.SA', 'B3SA3.SA', 'WEGE3.SA', 'PETR4.SA', 'VALE3.SA']
 tickers = st.text_input('Digite os tickers separados por vírgula:', ', '.join(default_tickers)).split(', ')
 
+# Seleção de período de análise
+start_date = st.date_input("Data de início", value=pd.to_datetime("2015-01-01"))
+end_date = st.date_input("Data de fim", value=pd.to_datetime("today"))
+
 # Baixando dados
 if st.button('Calcular alocação HRP'):
-    data = get_stock_data(tickers)
-    returns = data.pct_change().dropna()
+    data = get_stock_data(tickers, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
+    st.write("### Dados brutos dos ativos")
+    st.write(data.tail())  # Exibe os últimos dados baixados
     
-    if returns.shape[0] < 2 or returns.shape[1] < 2:
-        st.warning("Dados insuficientes para calcular a matriz de covariância. Tente adicionar mais ativos ou aumentar o período de análise.")
+    returns = data.pct_change().dropna()
+    st.write("### Retornos calculados")
+    st.write(returns.head())  # Exibe os primeiros retornos calculados
+    
+    returns = returns.dropna(axis=1, how='all')  # Remove ativos sem retornos válidos
+    
+    if returns.shape[1] < 2:
+        st.warning("Poucos ativos com dados disponíveis. Tente adicionar mais tickers ou ampliar o período de análise.")
     else:
         weights = hrp_allocation(returns)
         st.write('### Pesos da Carteira Otimizada')
@@ -67,3 +78,4 @@ if st.button('Calcular alocação HRP'):
         sch.dendrogram(linkage, labels=returns.columns, leaf_rotation=90)
         plt.title('Dendrograma de Clustering')
         st.pyplot(plt)
+
