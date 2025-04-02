@@ -34,9 +34,9 @@ st.title('Otimização de Portfólio com Hierarchical Risk Parity (HRP)')
 # Entrada de dados
 tickers_default = "AGRO3.SA BBAS3.SA BBSE3.SA BPAC11.SA EGIE3.SA ITUB3.SA PRIO3.SA PSSA3.SA SAPR3.SA SBSP3.SA VIVT3.SA WEGE3.SA TOTS3.SA B3SA3.SA TAEE3.SA"
 tickers = st.text_area('Digite os tickers separados por espaço', tickers_default).split()
-data_inicio = st.date_input("Data de início", value=pd.to_datetime("2019-01-01"))
-data_fim = st.date_input("Data de fim", value=pd.to_datetime("2024-01-01"))
-n_portfolios = st.number_input("Número de simulações", min_value=100, max_value=500000, value=10000, step=1000)
+data_inicio = st.date_input("Data de início", value=pd.to_datetime("2018-01-01"))
+data_fim = st.date_input("Data de fim", value=pd.to_datetime("2025-04-01"))
+n_portfolios = st.number_input("Número de simulações", min_value=100, max_value=1000000, value=10000, step=1000)
 limite_min_alocacao = st.slider("Limite mínimo de alocação por ativo (%)", min_value=0.0, max_value=1.0, value=0.0, step=0.05)
 limite_max_alocacao = st.slider("Limite máximo de alocação por ativo (%)", min_value=0.0, max_value=1.0, value=1.0, step=0.05)
 
