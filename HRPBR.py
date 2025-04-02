@@ -1,62 +1,55 @@
 import streamlit as st
+import yfinance as yf
 import numpy as np
 import pandas as pd
-import yfinance as yf
-from scipy.optimize import minimize
+import scipy.cluster.hierarchy as sch
+import scipy.spatial.distance as ssd
+import matplotlib.pyplot as plt
+from sklearn.covariance import LedoitWolf
 
-# Função para baixar dados históricos
-def get_stock_data(tickers, start, end):
+# Função para obter os dados históricos
+def get_data(tickers, start, end):
     data = yf.download(tickers, start=start, end=end)['Adj Close']
-    return data.dropna(axis=1, how='all')
+    return data
 
-# Função para calcular retornos diários
-def get_returns(data):
+# Função para calcular a matriz de correlação e a distância
+def get_correlation_distance(data):
     returns = data.pct_change().dropna()
-    return returns.dropna(axis=1, thresh=int(returns.shape[0] * 0.8))
+    correlation_matrix = returns.corr()
+    distance_matrix = np.sqrt(0.5 * (1 - correlation_matrix))
+    return correlation_matrix, distance_matrix
 
-# Função para calcular a volatilidade de cada ativo
-def calculate_volatility(returns):
-    return returns.std()
+# Função para aplicar HRP
+def hierarchical_risk_parity(data):
+    _, distance_matrix = get_correlation_distance(data)
+    dist_linkage = sch.linkage(ssd.squareform(distance_matrix), method='ward')
+    dendro = sch.dendrogram(dist_linkage, no_plot=True)
+    sorted_indices = dendro['leaves']
+    inv_volatility = 1 / data.pct_change().std()
+    weights = inv_volatility / inv_volatility.sum()
+    sorted_weights = weights.iloc[sorted_indices]
+    sorted_weights /= sorted_weights.sum()
+    return sorted_weights.sort_index()
 
-# Função para otimizar os pesos usando Risk Parity
-def risk_parity_allocation(returns):
-    cov_matrix = returns.cov()
-    num_assets = len(returns.columns)
-    init_guess = np.repeat(1/num_assets, num_assets)
-    bounds = [(0, 1) for _ in range(num_assets)]
-    constraints = ({'type': 'eq', 'fun': lambda w: np.sum(w) - 1})
-    
-    def risk_contributions(weights, cov_matrix):
-        portfolio_volatility = np.sqrt(weights.T @ cov_matrix @ weights)
-        marginal_risk = cov_matrix @ weights
-        risk_contributions = weights * marginal_risk / portfolio_volatility
-        return np.std(risk_contributions)
-    
-    result = minimize(risk_contributions, init_guess, args=(cov_matrix,),
-                      method='SLSQP', bounds=bounds, constraints=constraints)
-    
-    return pd.Series(result.x, index=returns.columns)
+# Interface do Streamlit
+st.title("Hierarchical Risk Parity para Ações Brasileiras")
 
-# Interface no Streamlit
-st.title('Otimização de Carteira com Risk Parity')
+tickers = st.text_area("Insira os tickers separados por espaço", "B3SA3 BBAS3 ITUB3 PETR4 VALE3 WEGE3")
+tickers = tickers.split()
 
-default_tickers = ['ITUB3.SA', 'B3SA3.SA', 'WEGE3.SA', 'PETR4.SA', 'VALE3.SA']
-tickers = st.text_input('Digite os tickers separados por vírgula:', ', '.join(default_tickers)).split(', ')
-start_date = st.text_input("Data de início (YYYY-MM-DD)", "2015-01-01")
-end_date = st.text_input("Data de fim (YYYY-MM-DD)", pd.to_datetime("today").strftime('%Y-%m-%d'))
+start_date = st.date_input("Data de início", pd.to_datetime("2020-01-01"))
+end_date = st.date_input("Data de fim", pd.to_datetime("2024-01-01"))
 
-if st.button('Calcular alocação Risk Parity'):
-    data = get_stock_data(tickers, start_date, end_date)
-    st.write("### Dados Brutos")
-    st.write(data.tail())
+if st.button("Analisar Portfólio"):
+    data = get_data(tickers, start_date, end_date)
+    hrp_weights = hierarchical_risk_parity(data)
     
-    returns = get_returns(data)
-    st.write("### Retornos Calculados")
-    st.write(returns.head())
+    st.subheader("Pesos da carteira HRP")
+    st.dataframe(hrp_weights)
     
-    if returns.shape[1] < 2:
-        st.warning("Poucos ativos com dados disponíveis. Tente adicionar mais tickers ou ampliar o período de análise.")
-    else:
-        weights = risk_parity_allocation(returns)
-        st.write('### Pesos da Carteira Otimizada')
-        st.write(weights)
+    # Plot do dendrograma
+    _, distance_matrix = get_correlation_distance(data)
+    dist_linkage = sch.linkage(ssd.squareform(distance_matrix), method='ward')
+    fig, ax = plt.subplots(figsize=(10, 5))
+    sch.dendrogram(dist_linkage, labels=tickers, ax=ax)
+    st.pyplot(fig)
