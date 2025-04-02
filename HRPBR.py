@@ -10,8 +10,17 @@ import matplotlib.pyplot as plt
 # Função para obter dados
 @st.cache_data
 def get_data(tickers, start, end):
-    df = yf.download(tickers, start=start, end=end)['Adj Close']
-    return df
+    df = yf.download(tickers, start=start, end=end)
+    
+    if df.empty:
+        st.error("Erro ao obter os dados. Verifique os tickers e a conexão com a internet.")
+        return None
+    
+    if 'Adj Close' not in df:
+        st.error("Dados retornados sem a coluna 'Adj Close'. Verifique os tickers e tente novamente.")
+        return None
+    
+    return df['Adj Close']
 
 # Interface do usuário
 st.title('Otimização de Portfólio com Hierarchical Risk Parity (HRP)')
@@ -25,6 +34,9 @@ n_portfolios = st.number_input("Número de simulações", min_value=100, max_val
 
 if st.button('Otimizar Portfólio'):
     df = get_data(tickers, data_inicio, data_fim)
+    if df is None:
+        st.stop()
+    
     returns = df.pct_change().dropna()
     
     # Otimização HRP
@@ -68,3 +80,5 @@ if st.button('Otimizar Portfólio'):
     ax.legend()
     fig.colorbar(scatter, label='Sharpe Ratio')
     st.pyplot(fig)
+
+
