@@ -16,11 +16,17 @@ def get_data(tickers, start, end):
         st.error("Erro ao obter os dados. Verifique os tickers e a conexão com a internet.")
         return None
     
-    if 'Adj Close' not in df:
-        st.error("Dados retornados sem a coluna 'Adj Close'. Verifique os tickers e tente novamente.")
-        return None
+    # Verifica quais colunas estão disponíveis
+    st.write("Colunas disponíveis nos dados:", df.columns)
     
-    return df['Adj Close']
+    # Se 'Adj Close' não estiver presente, verifica se 'Close' está disponível
+    if 'Adj Close' in df:
+        return df['Adj Close']
+    elif 'Close' in df:
+        return df['Close']
+    else:
+        st.error("Dados retornados sem as colunas esperadas ('Adj Close' ou 'Close'). Verifique os tickers e tente novamente.")
+        return None
 
 # Interface do usuário
 st.title('Otimização de Portfólio com Hierarchical Risk Parity (HRP)')
@@ -80,5 +86,4 @@ if st.button('Otimizar Portfólio'):
     ax.legend()
     fig.colorbar(scatter, label='Sharpe Ratio')
     st.pyplot(fig)
-
 
