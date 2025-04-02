@@ -17,9 +17,17 @@ def get_data(tickers, start, end):
     if data.empty:
         raise ValueError("Nenhum dado foi baixado. Verifique os tickers e as datas.")
     
-    # Ajuste para colunas multinível
+    # Verifica se há colunas multinível
     if isinstance(data.columns, pd.MultiIndex):
-        data = data.xs('Adj Close', level=1, axis=1)
+        try:
+            data = data.xs('Adj Close', level=1, axis=1)
+        except KeyError:
+            raise KeyError("Os dados retornados não contêm a coluna 'Adj Close'. Verifique os tickers inseridos.")
+    
+    # Se ainda não houver 'Adj Close', pode ser necessário pegar a última coluna disponível
+    if 'Adj Close' not in data.columns:
+        st.warning("A coluna 'Adj Close' não foi encontrada. Utilizando a última coluna disponível.")
+        data = data.iloc[:, -1]  # Usa a última coluna, caso não haja 'Adj Close'
     
     return data
 
