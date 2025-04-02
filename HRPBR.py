@@ -63,7 +63,3 @@ if st.button('Calcular alocação HRP'):
     sch.dendrogram(linkage, labels=returns.columns, leaf_rotation=90)
     plt.title('Dendrograma de Clustering')
     st.pyplot(plt)
-
-
-Código atualizado com a correção para evitar erros na matriz de covariância. Agora, ele remove valores NaN, verifica se há dados suficientes e só então aplica o modelo. Se encontrar outro problema, me avise!
-
