@@ -26,12 +26,13 @@ def get_correlation_distance(data):
     returns = data.pct_change().dropna()
     correlation_matrix = returns.corr()
     distance_matrix = np.sqrt(0.5 * (1 - correlation_matrix))
+    np.fill_diagonal(distance_matrix.values, 0)  # Garantindo que a diagonal seja zero
     return correlation_matrix, (distance_matrix + distance_matrix.T) / 2  # Garantindo simetria
 
 # Função para aplicar HRP
 def hierarchical_risk_parity(data):
     _, distance_matrix = get_correlation_distance(data)
-    dist_linkage = sch.linkage(ssd.squareform(distance_matrix), method='ward')
+    dist_linkage = sch.linkage(ssd.squareform(distance_matrix, checks=False), method='ward')
     dendro = sch.dendrogram(dist_linkage, no_plot=True)
     sorted_indices = dendro['leaves']
     inv_volatility = 1 / data.pct_change().std()
@@ -85,7 +86,7 @@ if st.button("Analisar Portfólio"):
         st.dataframe(hrp_weights)
         
         _, distance_matrix = get_correlation_distance(data)
-        dist_linkage = sch.linkage(ssd.squareform(distance_matrix), method='ward')
+        dist_linkage = sch.linkage(ssd.squareform(distance_matrix, checks=False), method='ward')
         fig, ax = plt.subplots(figsize=(10, 5))
         sch.dendrogram(dist_linkage, labels=tickers, ax=ax)
         st.pyplot(fig)
