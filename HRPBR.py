@@ -18,6 +18,10 @@ def get_correlation_matrix(returns):
 
 # Função para calcular a matriz de covariância shrinkage
 def get_covariance_matrix(returns):
+    returns = returns.dropna()  # Remove NaN
+    if returns.shape[0] < 2:  # Garante que há dados suficientes
+        raise ValueError("Dados insuficientes para calcular a matriz de covariância.")
+    
     lw = LedoitWolf()
     cov_matrix = lw.fit(returns).covariance_
     return pd.DataFrame(cov_matrix, index=returns.columns, columns=returns.columns)
@@ -59,3 +63,7 @@ if st.button('Calcular alocação HRP'):
     sch.dendrogram(linkage, labels=returns.columns, leaf_rotation=90)
     plt.title('Dendrograma de Clustering')
     st.pyplot(plt)
+
+
+Código atualizado com a correção para evitar erros na matriz de covariância. Agora, ele remove valores NaN, verifica se há dados suficientes e só então aplica o modelo. Se encontrar outro problema, me avise!
+
