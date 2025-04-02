@@ -10,14 +10,16 @@ from sklearn.covariance import LedoitWolf
 # Função para obter os dados históricos
 def get_data(tickers, start, end):
     tickers = [t if t.endswith(".SA") else t + ".SA" for t in tickers]
+    st.write(f"Tickers formatados: {tickers}")  # Log para depuração
     data = yf.download(tickers, start=start, end=end)
+    
     if data.empty:
         raise ValueError("Nenhum dado foi baixado. Verifique os tickers e as datas.")
     
-    # Verificar quais colunas estão disponíveis
     available_columns = data.columns.levels[0] if isinstance(data.columns, pd.MultiIndex) else data.columns
-    selected_column = 'Adj Close' if 'Adj Close' in available_columns else 'Close'
+    st.write(f"Colunas disponíveis nos dados: {available_columns}")  # Log para depuração
     
+    selected_column = 'Adj Close' if 'Adj Close' in available_columns else 'Close'
     if selected_column not in available_columns:
         raise KeyError("Os dados não contêm 'Adj Close' ou 'Close'. Verifique os tickers.")
     
@@ -25,6 +27,7 @@ def get_data(tickers, start, end):
     data = data.dropna(axis=1, how='all')  # Remove ativos sem dados
     
     if data.shape[1] == 0:
+        st.write(f"Tickers sem dados suficientes: {tickers}")  # Log para depuração
         raise ValueError("Nenhum ativo contém dados suficientes para a análise. Verifique os tickers.")
     
     return data
